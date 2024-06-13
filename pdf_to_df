@@ -1,0 +1,78 @@
+import PyPDF2
+import re
+from tkinter import filedialog
+import pandas as pd
+import os
+from datetime import datetime
+import numpy as np
+
+filename = filedialog.askopenfilenames()
+
+ProductName = []
+StartDate = []
+EndDate = []
+PayType = []
+Direction = []
+ParticipationIndex = []
+
+
+def return_clean_value(reg):
+    try:
+        return[g for g in reg.group() if g][0]
+    except:
+        return None
+
+def convert_dates(port_date):
+    try:
+        port_months = {
+            "janeiro": "01",
+            "fevreiro":"02",
+            "marzo": "03",
+            "avril": "04",
+            "mayo": "05",
+            "junio": "06",
+            "julio": "07",
+            "agosto": "08",
+            "setembro": "09",
+            "octubro": "10",
+            "novembro": "11",
+            "dezembro": "12",
+        }
+        day, month, year = port_date.split("de")
+        month  = month.split()[0]
+        month = port_months[month.lower()]
+        standard_date = datetime.strftime(f'{day}/{month}/{year}','%d/%m/%Y')
+        return standard_date.strftime('%d/%m/%Y')
+    except: ValueError
+    return "01/01/1900"
+
+for file in range(len(filename)):
+    doc = PyPDF2.PdfReader(filename[file])
+    numpage = len(doc.pages)
+    text = ""
+    for i in range (numpage):
+        fpage = doc.pages[i]
+        text +=fpage.extract_text()
+
+    try:
+        prdName = return_clean_value(re.search(r'(100% Cap(.|\n)*?)Des', text,re.MULTILINE))
+        prdName = prdName.replace("\n"," ")
+    except Exception as e:
+        prdName = return_clean_value(re.search(r'(Serie Cap(.|\n)*?)Description', text,re.MULTILINE))
+        prdName = prdName.replace("\n"," ")
+
+    ProductName.append(prdName)
+    
+    # do the same for the rest 5 variables and append the results to the list
+
+df = pd.DataFrame(columns=("Product name","Start","End","Pay","Direct","Part"))
+for i in range (len(ProductName)):
+    df.loc[i] = [ProductName[i],StartDate[i],EndDate[i],PayType[i],Direction[i],ParticipationIndex[i]]
+    
+upload_template = pd.DataFrame(columns=("ID Number","Type","Date of submission","Product name","Start","End","Pay","Direct","Part"))
+
+df_final = pd.concat([upload_template,df],ignore_index=True)
+with pd.ExcelWriter("Report.xlsx") as writer:
+    df_final.to_excel(writer,sheet_name="Data", index=False)
+    
+    
